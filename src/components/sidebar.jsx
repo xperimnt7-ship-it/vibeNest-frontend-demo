@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { Navigate, NavLink, redirect } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import "../index.css"
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router";
-import SearchDialog from "./dialogs/searhDialog";
+import SearchUserDialog from "../dialogs/SearchUserDialog";
 
 const Sidebar = () => {
 
@@ -12,11 +12,11 @@ const Sidebar = () => {
     const user = useSelector((state)=>state.auth?.user)
     const userIcon = user?.avatar?.url ?? "/personPlaceHolder.png"
     const isLoggedIn = useSelector((state)=>state.auth.isLoggedin)
-    const [showSearchDialog, setShowSearchDialog] = useState(true)
+    const [showSearchDialog, setShowSearchDialog] = useState(false)
 
     const navItems = [
     { icon: "home", label: "Home", path: "/" },
-    { icon: "search", label: "Search", path: "/search" },
+    { icon: "search", label: "Search", path: "#", onClick: () => setShowSearchDialog(true) },
     { icon: "circle_notifications", label: "Requests", path: "/socialtabsPage" },
     { icon: "chat_bubble", label: "Messages", path: "/messages" },
     { icon: "group", label: "Communities", path: "/communities" },
@@ -28,16 +28,27 @@ const Sidebar = () => {
 
 
     <div className=" p-6 flex flex-col bg-[var(--backGround)] overflow-y-auto overflow-x-hidden w-[72px] md:w-[220px] items-center h-[100vh] your-container">
-        {showSearchDialog && <SearchDialog visible={showSearchDialog} onClose={()=>setShowSearchDialog(false)}/>}
+        {showSearchDialog && <SearchUserDialog visible={showSearchDialog} onClose={()=>setShowSearchDialog(false)}/>}
          <div className=" w-full h-auto flex flex-col items-center md:items-start gap-7 text-white">
             <img src="/logo.png" alt="LogoImage" className="w-12 h-12 object-contain rounded-full"></img>
             <ul className="flex flex-col gap-7 items-center md:items-start">
 
                 {navItems.map((item, index)=>(
                     <li key={index} className="flex items-center font-medium  text-[var(--textColor)] hover:text-[var(--textHover)]">
-                        <NavLink to={item.path} className={({isActive})=>`p-1 rounded-full flex flex-row gap-2 ${isActive? "bg-blue-500" : ""}`}>
-                            <span className="material-symbols-outlined">{item.icon}</span> <span className="hidden md:block">{item.label}</span>
-                        </NavLink>
+                        {item.onClick ? (
+                            <button 
+                                onClick={item.onClick}
+                                className="p-1 rounded-full flex flex-row gap-2 hover:bg-blue-500/20 transition-colors"
+                            >
+                                <span className="material-symbols-outlined">{item.icon}</span> 
+                                <span className="hidden md:block">{item.label}</span>
+                            </button>
+                        ) : (
+                            <NavLink to={item.path} className={({isActive})=>`p-1 rounded-full flex flex-row gap-2 ${isActive? "bg-blue-500" : ""}`}>
+                                <span className="material-symbols-outlined">{item.icon}</span> 
+                                <span className="hidden md:block">{item.label}</span>
+                            </NavLink>
+                        )}
                     </li>
                 ))}
             </ul>

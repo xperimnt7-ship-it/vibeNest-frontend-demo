@@ -10,6 +10,7 @@ import { Provider } from 'react-redux'
 import Login from './pages/login'
 import {Profile} from './pages/profile'
 import SocialTabsPage from './pages/connections'
+import App from './App'
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -30,6 +31,7 @@ const router = createBrowserRouter(
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
+      <App />
       <RouterProvider router={router} />
     </Provider>
   </StrictMode>,

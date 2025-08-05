@@ -1,46 +1,22 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, logout } from "../features/auth/authSlice";
-import { useDispatch } from "react-redux";
+import { useAuth } from "../hooks/useAuth";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const dispatch = useDispatch();
+  const { loginUser, isLoading, error } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Submit button clicked")
 
     try {
-      const response = await fetch("http://localhost:3000/v1/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          email: email,
-          password: password,
-        }),
-        credentials: "include", // include cookies
-      });
-
-      const data = await response.json(); // parse response body
-
-      if (!response.ok) {
-        console.log("Login failed:", data.message);
-        alert(data?.message || "Login failed");
-        return; // stop here
-      }
-
-      console.log("User logged in successfully");
-      dispatch(login());
+      await loginUser({ email, password });
       navigate("/");
     } catch (error) {
-      console.error("Error during login:", error);
-      alert("Something went wrong. Please try again.");
+      console.error("Login failed:", error);
     }
   };
   const handleEmailChange = (e) => {
@@ -63,6 +39,12 @@ function Login() {
           {" "}
           Login to connect, create
         </h4>
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+        
         <form
           className="bg-black text-white flex flex-col mt-5 p-2  md:border-none border-2 border-white"
           onSubmit={handleSubmit}
@@ -96,8 +78,9 @@ function Login() {
 
           <input
             type="submit"
-            value="Login"
-            className="p-2 border border-white rounded-full max-w-[100px] mt-4 hover:bg-white hover:text-black transition duration-300 ease-in-out"
+            value={isLoading ? "Logging in..." : "Login"}
+            disabled={isLoading}
+            className="p-2 border border-white rounded-full max-w-[100px] mt-4 hover:bg-white hover:text-black transition duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </form>
         <button className="text-xs cursor-pointer text-blue-500 w-fit">

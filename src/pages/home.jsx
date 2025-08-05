@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useRef } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { logout, login, setUser } from "../features/auth/authSlice";
-import { PostCard } from "../components/postCard";
-import CreatePostComponent from "../components/createPostComponent.jsx";
-import { Navigate } from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef } from "react";
+import { useSelector } from "react-redux";
+import { useInfiniteScroll } from "../hooks/useInfiniteScroll";
+import { postsAPI } from "../api/posts";
+import HomePostCard from "../cards/HomePostCard";
+import CreatePost from "../components/CreatePost";
+import { useAuth } from "../hooks/useAuth";
 
 
 const demoPost = {
@@ -35,124 +35,112 @@ const demoPost = {
             };
 
 function Home() {
-  let isLoggedIn = useSelector((state) => state.auth.isLoggedin);
-  const dispatch = useDispatch();
-  const [allPosts, setAllPosts] = useState([])
-  const itemsRef = useRef([])
-  const [prevLen, setPrevLen] = useState(0)
-  const observerRef = useRef(null); 
-  const [fetchNextPage, setFetchNextPage] = useState(true)
-  const [metaData, setMetaData] = useState({
-    pageLimit: 3,
-    lastCreatedAt: null,
-    lastPostId: null
-  })
-  const navigate = useNavigate()
+  const { isLoggedIn, isLoading: authLoading } = useAuth();
+  const itemsRef = useRef([]);
+  const observerRef = useRef(null);
+  const [prevLen, setPrevLen] = useState(0);
 
+  // Infinite scroll hook for posts
+  const {
+    data: allPosts,
+    isLoading: postsLoading,
+    hasMore,
+    error: postsError,
+    loadingRef
+  } = useInfiniteScroll(
+    async (page, pageSize) => {
+      return await postsAPI.getPosts(page, pageSize);
+    },
+    {
+      enabled: isLoggedIn,
+      pageSize: 5
+    }
+  );
+
+  // Handle post creation
+  const handlePostCreated = (newPost) => {
+    // Refresh the posts list
+    window.location.reload();
+  };
+
+  // Set up video intersection observer
   useEffect(() => {
-    if (isLoggedIn) return;
-
-    const refreshToken = async () => {
-      try {
-        let response = await fetch("http://localhost:3000/v1/auth/refresh", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json"
-          }
-        });
-
-        if (!response.ok) {
-          alert(response.message)
-          navigate("/login")
-          return null;
-        }
-
-        console.log("Token refreshed");
-
-        const userData = await response.json();
-        console.log("UserData in redux",userData?.data?.user);  // this is an array of objects, so we need to deStructure
-        dispatch(setUser(...(userData?.data?.user)));
-        dispatch(login());
-      } catch (error) {
-        console.error("Failed to refresh token", error);
-      }
+    const options = {
+      rootMargin: "0px",
+      scrollMargin: "0px",
+      threshold: 0.6,
     };
+    
+    const callback = (entries) => {
+      entries.forEach((entry) => {
+        const videoElement = entry.target;
 
-    refreshToken();
-  }, []);
-
-  useEffect(()=>{
-    if(!fetchNextPage)
-      return;
-
-    const fetchPostsNextPage = async ()=>{
-      console.log("fetchPostsNextPage called")
-      let response = await fetch(`http://localhost:3000/v1/posts`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json"
+        if (entry.isIntersecting) {
+          if (videoElement && videoElement.id === "VIDEO") {
+            videoElement.play().catch((err) => {
+              console.error("Autoplay failed:", err);
+            });
+          }
+        } else {
+          if (videoElement && videoElement.tagName === "VIDEO") {
+            videoElement.pause();
+          }
         }
       });
-      console.log("fetch posts",response)
-      if(!response.ok){
-        alert("Something went wrong")
-        return
-      }
-      response = await response.json()
-
-      setMetaData(response?.data?.metaData)
-      setAllPosts([...allPosts,...response.data.result])
-    }
-
-    fetchPostsNextPage()
-
-  },[fetchNextPage])
-
-  useEffect(()=>{
-    const options = {
-    rootMargin: "0px",
-    scrollMargin: "0px",
-    threshold: 0.6,
-  };
-    const callback = (entries) => {
-    entries.forEach((entry) => {
-      const videoElement = entry.target;
-
-      if (entry.isIntersecting) {
-        if (videoElement && videoElement.id === "VIDEO") {
-          videoElement.play().catch((err) => {
-            console.error("Autoplay failed:", err);
-          });
-        }
-      } else {
-        if (videoElement && videoElement.tagName === "VIDEO") {
-          videoElement.pause();
-        }
-      }
-    });
-  };
+    };
+    
     observerRef.current = new IntersectionObserver(callback, options);
-  },[])
+  }, []);
 
-  useEffect(()=>{
-    for(let i=prevLen;i<allPosts.length;i++){
-      itemsRef.current[i] = null
-      // observerRef.current.observe(itemsRef.current[i])
+  // Update refs when posts change
+  useEffect(() => {
+    for (let i = prevLen; i < allPosts.length; i++) {
+      itemsRef.current[i] = null;
     }
-    setPrevLen(allPosts.length)
-  }, [allPosts])
+    setPrevLen(allPosts.length);
+  }, [allPosts, prevLen]);
 
+
+
+
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="w-full max-w-[600px] h-[100vh] bg-[var(--backGround)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-[600px] h-[100vh] bg-[var(--backGround)] overflow-y-auto border-x border-[var(--borderLight)] your-container">
-      <CreatePostComponent />
-      {
-        allPosts.map((post, index)=>{
-          return <PostCard post={post} key={index} itemsRef = {itemsRef} index = {index} observerRef = {observerRef}/>
-        })
-      }
+      {isLoggedIn && <CreatePost onPostCreated={handlePostCreated} />}
+      
+      {postsError && (
+        <div className="p-4 text-red-400 text-center">
+          Error loading posts: {postsError}
+        </div>
+      )}
+      
+      {allPosts.map((post, index) => (
+        <HomePostCard 
+          post={post} 
+          key={post._id || index} 
+          itemsRef={itemsRef} 
+          index={index} 
+          observerRef={observerRef}
+        />
+      ))}
+      
+      {/* Loading indicator for infinite scroll */}
+      {postsLoading && (
+        <div className="flex justify-center p-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        </div>
+      )}
+      
+      {/* Intersection observer target for infinite scroll */}
+      <div ref={loadingRef} className="h-4" />
     </div>
   );
 }
